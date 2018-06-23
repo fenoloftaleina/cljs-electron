@@ -1,59 +1,104 @@
 (ns ui.core
-  (:require [reagent.core :as reagent :refer [atom]]
-            [clojure.string :as string :refer [split-lines]]))
-
-(def join-lines (partial string/join "\n"))
+  (:require
+    [reagent.core :as reagent :refer [atom]])
+  (:import
+    [goog.async Debouncer]))
 
 (enable-console-print!)
 
-(defonce state        (atom 0))
-(defonce shell-result (atom ""))
-(defonce command      (atom ""))
+(defonce state (atom {:left {:highlighted false
+                             :on true}
+                      :center {:highlighted false
+                               :on true}
+                      :right {:highlighted false
+                              :on true}}))
+(def colors {:left :#23A087 :center :#F95C6E :right :#004D63})
+(def gray-color :#333)
 
-(defonce proc (js/require "child_process"))
+(defn debounce [f]
+  (let [dbnc (Debouncer. f 200)]
+    (fn [& args] (.apply (.-fire dbnc) dbnc (to-array args)))))
 
-(defn append-to-out [out]
-  (swap! shell-result str out))
+(defn panel [panel-key]
+  (let [{:keys [highlighted on]} (panel-key @state)
+        bg (if highlighted
+             :#fff
+             (if on
+               (panel-key colors)
+               gray-color))]
+    [:div {:key panel-key
+           :style {:transition "all 0.2s linear"
+                   :flex "1 0 0"
+                   :background bg}}]))
 
-(defn run-process []
-  (when-not (empty? @command)
-    (println "Running command" @command)
-    (let [[cmd & args] (string/split @command #"\s")
-          js-args (clj->js (or args []))
-          p (.spawn proc cmd js-args)]
-      (.on p "error" (comp append-to-out
-                           #(str % "\n")))
-      (.on (.-stderr p) "data" append-to-out)
-      (.on (.-stdout p) "data" append-to-out))
-    (reset! command "")))
+(defn full-size [& content]
+  [:div {:style {:display :flex
+                 :height :100vh}}
+   content])
+
+(defn panels [& content]
+  [:div {:key 1
+         :style {:flex "1 1 0"
+                 :display :flex
+                 :flexDirection :row}}
+   content])
 
 (defn root-component []
-  [:div
-   [:div.logos
-    [:img.electron {:src "img/electron-logo.png"}]
-    [:img.cljs {:src "img/cljs-logo.svg"}]
-    [:img.reagent {:src "img/reagent-logo.png"}]]
-   [:pre "Versions:"
-    [:p (str "Node     " js/process.version)]
-    [:p (str "Electron " ((js->clj js/process.versions) "electron"))]
-    [:p (str "Chromium " ((js->clj js/process.versions) "chrome"))]]
-   [:button
-    {:on-click #(swap! state inc)}
-    (str "Clicked " @state " times")]
-   [:p
-    [:form
-     {:on-submit (fn [^js/Event e]
-                   (.preventDefault e)
-                   (run-process))}
-     [:input#command
-      {:type :text
-       :on-change (fn [^js/Event e]
-                    (reset! command
-                            ^js/String (.-value (.-target e))))
-       :value @command
-       :placeholder "type in shell command"}]]]
-   [:pre (join-lines (take 100 (reverse (split-lines @shell-result))))]])
+  (full-size
+    (panels
+      (panel :left)
+      (panel :center)
+      (panel :right))))
 
 (reagent/render
   [root-component]
   (js/document.getElementById "app-container"))
+
+(def left? #{"a" "s" "z" "`" "Meta" "Control" "Tab" "§" "1" "2" "3" "4"
+             "q" "w" "e" "d" "x" "c"})
+(def center? #{"b" "g" "h" "v" "f" "r" "5" "6" "7" "8" "t" "y" "u" "j" "n" " " "m"})
+(def right? #{"," "k" "l" "i" "9" "0" "-" "=" "Backspace" "[" "]" ";" "'" "\\"
+              "." "/" "ArrowLeft" "ArrowDown" "ArrowRight" "ArrowUp" "Enter"})
+
+(defn side-key-for-key-pressed [k]
+  (cond
+    (left? k) :left
+    (center? k) :center
+    (right? k) :right))
+
+(def switch-on-off
+  (debounce
+    (fn [k]
+      (swap! state
+             #(update-in % [(side-key-for-key-pressed k) :on] not)))))
+
+(defn set-highlight [k status]
+  (swap! state
+         #(assoc-in % [(side-key-for-key-pressed k) :highlighted] status)))
+
+(defn on-key-down [k]
+  (set-highlight k true))
+
+(defn on-key-up [k]
+  (set-highlight k false)
+  #_(switch-on-off k))
+
+(defn keydown-handler [e]
+  (.preventDefault e)
+  (.stopPropagation e)
+  (on-key-down (.-key e)))
+
+(defn keyup-handler [e]
+  (.preventDefault e)
+  (.stopPropagation e)
+  (on-key-up (.-key e)))
+
+(js/setTimeout
+  #(do
+     (.addEventListener js/document
+                        "keydown"
+                        keydown-handler)
+     (.addEventListener js/document
+                        "keyup"
+                        keyup-handler))
+  2000)
