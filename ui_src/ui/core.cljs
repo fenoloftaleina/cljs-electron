@@ -62,7 +62,7 @@
 (def right? #{"," "k" "l" "i" "9" "0" "-" "=" "Backspace" "[" "]" ";" "'" "\\"
               "." "/" "ArrowLeft" "ArrowDown" "ArrowRight" "ArrowUp" "Enter"})
 
-(defn side-key-for-key-pressed [k]
+(defn side-for-key-pressed [k]
   (cond
     (left? k) :left
     (center? k) :center
@@ -70,34 +70,35 @@
 
 (def switch-on-off
   (debounce
-    (fn [k]
+    (fn [side]
       (swap! state
-             #(update-in % [(side-key-for-key-pressed k) :on] not)))))
+             #(update-in % [side :on] not)))))
 
-(defn set-highlight [k status]
+(defn set-highlight [side status]
   (swap! state
-         #(assoc-in % [(side-key-for-key-pressed k) :highlighted] status)))
+         #(assoc-in % [side :highlighted] status)))
 
-(defn sounds-for-key-pressed [k]
+(def sound-octave-for-side
   (let [octave 3]
-    (cond
-      (left? k) ["C" octave]
-      (center? k) ["D" octave]
-      (right? k) ["E" octave])))
+    {:left ["C" octave]
+     :center ["D" octave]
+     :right ["E" octave]}))
 
 (def play
-  (fn [k]
-    (let [[sound octave] (sounds-for-key-pressed k)]
+  (fn [side]
+    (let [[sound octave] (sound-octave-for-side side)]
       (.play piano sound octave 1))))
 
 (defn on-key-down [k]
-  (when-not (get-in @state [(side-key-for-key-pressed k) :highlighted])
-    (play k))
-  (set-highlight k true))
+  (let [side (side-for-key-pressed k)]
+    (when-not (get-in @state [side :highlighted])
+      (play side))
+    (set-highlight side true)))
 
 (defn on-key-up [k]
-  (set-highlight k false)
-  #_(switch-on-off k))
+  (let [side (side-for-key-pressed k)]
+    (set-highlight side false)
+    #_(switch-on-off side)))
 
 (defn keydown-handler [e]
   (.preventDefault e)
