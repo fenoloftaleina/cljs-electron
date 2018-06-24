@@ -15,6 +15,8 @@
 (def colors {:left :#23A087 :center :#F95C6E :right :#004D63})
 (def gray-color :#333)
 
+(def piano (.createInstrument js/Synth "piano"))
+
 (defn debounce [f]
   (let [dbnc (Debouncer. f 200)]
     (fn [& args] (.apply (.-fire dbnc) dbnc (to-array args)))))
@@ -76,7 +78,21 @@
   (swap! state
          #(assoc-in % [(side-key-for-key-pressed k) :highlighted] status)))
 
+(defn sounds-for-key-pressed [k]
+  (let [octave 3]
+    (cond
+      (left? k) ["C" octave]
+      (center? k) ["D" octave]
+      (right? k) ["E" octave])))
+
+(def play
+  (fn [k]
+    (let [[sound octave] (sounds-for-key-pressed k)]
+      (.play piano sound octave 1))))
+
 (defn on-key-down [k]
+  (when-not (get-in @state [(side-key-for-key-pressed k) :highlighted])
+    (play k))
   (set-highlight k true))
 
 (defn on-key-up [k]
