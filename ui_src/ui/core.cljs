@@ -56,7 +56,7 @@
   [root-component]
   (js/document.getElementById "app-container"))
 
-(def left? #{"a" "s" "z" "`" "Meta" "Control" "Tab" "§" "1" "2" "3" "4"
+(def left? #{"a" "s" "z" "`" "Control" "Tab" "§" "1" "2" "3" "4"
              "q" "w" "e" "d" "x" "c"})
 (def center? #{"b" "g" "h" "v" "f" "r" "5" "6" "7" "8" "t" "y" "u" "j" "n" " " "m"})
 (def right? #{"," "k" "l" "i" "9" "0" "-" "=" "Backspace" "[" "]" ";" "'" "\\"
