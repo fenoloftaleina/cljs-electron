@@ -10,7 +10,9 @@
 (defn init-browser []
   (reset! main-window (browser-window.
                         (clj->js {:width 800
-                                  :height 600})))
+                                  :height 600
+                                  :alwaysOnTop true
+                                  :fullscreen true})))
   (.setIgnoreMouseEvents ^js/electron.BrowserWindow @main-window true)
   ; Path is relative to the compiled js file (main.js in our case)
   (.loadURL ^js/electron.BrowserWindow @main-window (str "file://" js/__dirname "/public/index.html"))
